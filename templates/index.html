@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LyricSync Pro</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="logo">
+        <span class="logo-icon">♫</span>
+        <div>
+          <div class="logo-title">LyricSync</div>
+          <div class="logo-sub">Pro</div>
+        </div>
+      </div>
+
+      <nav>
+        <button class="nav-btn active" data-panel="dashboard">
+          <span class="nav-icon">⌂</span> Dashboard
+        </button>
+        <button class="nav-btn" data-panel="results">
+          <span class="nav-icon">≡</span> Results
+        </button>
+        <button class="nav-btn" data-panel="settings">
+          <span class="nav-icon">⚙</span> Settings
+        </button>
+      </nav>
+
+      <div class="sidebar-stats" id="sidebar-stats" style="display:none">
+        <div class="stat-row">
+          <span class="stat-dot synced"></span>
+          <span id="stat-synced">0</span> synced
+        </div>
+        <div class="stat-row">
+          <span class="stat-dot unsynced"></span>
+          <span id="stat-unsynced">0</span> unsynced
+        </div>
+        <div class="stat-row">
+          <span class="stat-dot notfound"></span>
+          <span id="stat-notfound">0</span> not found
+        </div>
+        <div class="stat-row">
+          <span class="stat-dot failed"></span>
+          <span id="stat-failed">0</span> failed
+        </div>
+        <div class="stat-row">
+          <span class="stat-dot skipped"></span>
+          <span id="stat-skipped">0</span> skipped
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main id="main">
+
+      <!-- ── DASHBOARD PANEL ── -->
+      <section id="panel-dashboard" class="panel active">
+        <div class="panel-header">
+          <h1>Dashboard</h1>
+          <div id="status-badge" class="badge idle">Idle</div>
+        </div>
+
+        <!-- Folder picker -->
+        <div class="card" id="card-folder">
+          <div class="card-label">Music Library Folder</div>
+          <div class="folder-row">
+            <input type="text" id="folder-input" placeholder="Paste your folder path here, e.g.  C:\Music" spellcheck="false">
+            <button id="btn-scan" class="btn-primary">Scan Library</button>
+          </div>
+          <div class="folder-hint">The app will scan all subfolders recursively for MP3 files.</div>
+        </div>
+
+        <!-- Scan summary -->
+        <div class="card" id="card-summary" style="display:none">
+          <div class="card-label">Scan Results</div>
+          <div class="summary-grid">
+            <div class="summary-cell">
+              <div class="summary-num" id="sum-total">—</div>
+              <div class="summary-lbl">Total MP3s</div>
+            </div>
+            <div class="summary-cell accent">
+              <div class="summary-num" id="sum-eligible">—</div>
+              <div class="summary-lbl">To Process</div>
+            </div>
+            <div class="summary-cell dim">
+              <div class="summary-num" id="sum-skipped">—</div>
+              <div class="summary-lbl">Already Synced</div>
+            </div>
+            <div class="summary-cell">
+              <div class="summary-num" id="sum-est">—</div>
+              <div class="summary-lbl">Est. Time</div>
+            </div>
+          </div>
+          <div class="action-row">
+            <button id="btn-start" class="btn-primary" style="display:none">▶ Start Processing</button>
+            <button id="btn-pause" class="btn-secondary" style="display:none">⏸ Pause</button>
+            <button id="btn-resume" class="btn-secondary" style="display:none">▶ Resume</button>
+            <button id="btn-cancel" class="btn-danger" style="display:none">✕ Cancel</button>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="card" id="card-progress" style="display:none">
+          <div class="card-label">Progress</div>
+          <div class="now-playing" id="now-playing">
+            <div class="np-track" id="np-track">—</div>
+            <div class="np-artist" id="np-artist">—</div>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="prog-count">0 / 0</span>
+            <span id="prog-pct">0%</span>
+            <span id="prog-time">0s elapsed</span>
+          </div>
+        </div>
+
+        <!-- Live log -->
+        <div class="card" id="card-log" style="display:none">
+          <div class="card-label">
+            Activity Log
+            <button id="btn-clear-log" class="btn-tiny">Clear</button>
+          </div>
+          <div id="log-container">
+            <div id="log-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── RESULTS PANEL ── -->
+      <section id="panel-results" class="panel">
+        <div class="panel-header">
+          <h1>Results</h1>
+          <button id="btn-export" class="btn-secondary btn-sm">⬇ Export CSV</button>
+        </div>
+
+        <div class="card">
+          <div class="filter-row">
+            <input type="text" id="results-search" placeholder="Search by filename, artist, or title…" class="search-input">
+            <select id="results-filter" class="filter-select">
+              <option value="">All outcomes</option>
+              <option value="SYNCED_EMBEDDED">Synced Embedded</option>
+              <option value="UNSYNCED_EMBEDDED">Unsynced Embedded</option>
+              <option value="NOT_FOUND">Not Found</option>
+              <option value="FAILED">Failed</option>
+              <option value="SKIPPED">Skipped</option>
+              <option value="EMPTY">Not processed yet</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table id="results-table">
+              <thead>
+                <tr>
+                  <th data-sort="filename">Filename</th>
+                  <th data-sort="artist">Artist</th>
+                  <th data-sort="title">Title</th>
+                  <th data-sort="state">Initial State</th>
+                  <th data-sort="outcome">Outcome</th>
+                </tr>
+              </thead>
+              <tbody id="results-body">
+                <tr><td colspan="5" class="empty-state">Run a scan to see results here.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer" id="table-footer">—</div>
+        </div>
+      </section>
+
+      <!-- ── SETTINGS PANEL ── -->
+      <section id="panel-settings" class="panel">
+        <div class="panel-header">
+          <h1>Settings</h1>
+        </div>
+
+        <div class="card settings-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">API Request Delay</div>
+              <div class="setting-desc">Milliseconds to wait between each lrclib.net request. Lower = faster, but risk rate limiting. Recommended: 300–500 ms.</div>
+            </div>
+            <div class="setting-control">
+              <input type="number" id="set-delay" min="100" max="2000" step="50" value="350">
+              <span class="unit">ms</span>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Embed Unsynced Lyrics as Fallback</div>
+              <div class="setting-desc">When no synced lyrics are found, embed plain text lyrics if available. These won't karaoke-scroll but are better than nothing.</div>
+            </div>
+            <div class="setting-control">
+              <label class="toggle">
+                <input type="checkbox" id="set-fallback" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Report Output Folder</div>
+              <div class="setting-desc">Where the CSV report will be saved. Defaults to your music library folder.</div>
+            </div>
+            <div class="setting-control wide">
+              <input type="text" id="set-report-folder" placeholder="Same as music folder" class="folder-input-sm">
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div></div>
+            <button id="btn-save-settings" class="btn-primary">Save Settings</button>
+          </div>
+        </div>
+
+        <div class="card settings-card">
+          <div class="card-label">About</div>
+          <p class="about-text">
+            <strong>LyricSync Pro v1.0</strong><br>
+            Lyrics sourced from <a href="https://lrclib.net" target="_blank">lrclib.net</a> — a free, open, no-auth public lyrics API.<br>
+            Metadata read/written using <a href="https://mutagen.readthedocs.io" target="_blank">mutagen</a>.<br><br>
+            Synced lyrics are stored in the <code>SYLT</code> ID3v2 frame.<br>
+            Plain lyrics are stored in the <code>USLT</code> ID3v2 frame.<br>
+            Only these two frames are modified — all other tags are preserved.
+          </p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
