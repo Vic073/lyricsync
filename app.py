@@ -285,6 +285,8 @@ def process_queue():
         })
 
         # Fetch lyrics
+        outcome = "NOT_FOUND"
+        source = "lrclib.net: no match"
         try:
             result = fetch_lyrics(
                 artist=file_info.get("artist", ""),
@@ -320,10 +322,6 @@ def process_queue():
             else:
                 outcome = "NOT_FOUND"
                 source = "lrclib.net: no lyrics"
-        else:
-            if 'outcome' not in dir():
-                outcome = "NOT_FOUND"
-                source = "lrclib.net: no match"
 
         with lock:
             file_info["outcome"] = outcome
