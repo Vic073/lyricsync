@@ -15,7 +15,7 @@ from flask import Flask, request, jsonify, Response, render_template, send_file
 
 from scanner import scan_library
 from fetcher import fetch_lyrics
-from embedder import embed_lyrics, get_lyrics_state
+from embedder import embed_lyrics, get_lyrics_state, write_lrc_file
 
 app = Flask(__name__)
 
@@ -32,6 +32,7 @@ session = {
     "settings": {
         "delay_ms": 350,
         "embed_unsynced_fallback": True,
+        "generate_lrc_files": True,
         "report_folder": ""
     }
 }
@@ -88,6 +89,40 @@ def scan():
 
     threading.Thread(target=do_scan, daemon=True).start()
     return jsonify({"ok": True})
+
+
+@app.route("/browse", methods=["POST"])
+def browse_folder():
+    """Open a native OS folder picker dialog and return the selected path."""
+    def _pick():
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            folder = filedialog.askdirectory(
+                title="Select Music Library Folder"
+            )
+            root.destroy()
+            return folder or ""
+        except Exception:
+            return ""
+
+    # tkinter must run in a thread that can create windows
+    result = {"folder": ""}
+    def run():
+        result["folder"] = _pick()
+
+    t = threading.Thread(target=run)
+    t.start()
+    t.join(timeout=120)  # generous timeout for user to pick a folder
+
+    folder = result["folder"]
+    if folder:
+        return jsonify({"folder": folder})
+    else:
+        return jsonify({"folder": "", "cancelled": True})
 
 
 @app.route("/scan/status")
@@ -207,6 +242,8 @@ def settings():
                 session["settings"]["delay_ms"] = max(100, min(2000, int(data["delay_ms"])))
             if "embed_unsynced_fallback" in data:
                 session["settings"]["embed_unsynced_fallback"] = bool(data["embed_unsynced_fallback"])
+            if "generate_lrc_files" in data:
+                session["settings"]["generate_lrc_files"] = bool(data["generate_lrc_files"])
             if "report_folder" in data:
                 session["settings"]["report_folder"] = data["report_folder"]
         return jsonify(session["settings"])
@@ -219,6 +256,7 @@ def process_queue():
         eligible = [f for f in session["files"] if f["state"] in ("EMPTY", "UNSYNCED")]
         delay = session["settings"]["delay_ms"] / 1000.0
         fallback = session["settings"]["embed_unsynced_fallback"]
+        generate_lrc = session["settings"]["generate_lrc_files"]
 
     processed = 0
     total = len(eligible)
@@ -265,7 +303,7 @@ def process_queue():
 
             if synced:
                 try:
-                    embed_lyrics(path, synced_lrc=synced)
+                    embed_lyrics(path, synced_lrc=synced, generate_lrc=generate_lrc)
                     outcome = "SYNCED_EMBEDDED"
                     source = "lrclib.net (synced)"
                 except Exception as e:
@@ -282,9 +320,10 @@ def process_queue():
             else:
                 outcome = "NOT_FOUND"
                 source = "lrclib.net: no lyrics"
-        elif result is None and 'outcome' not in locals():
-            outcome = "NOT_FOUND"
-            source = "lrclib.net: no match"
+        else:
+            if 'outcome' not in dir():
+                outcome = "NOT_FOUND"
+                source = "lrclib.net: no match"
 
         with lock:
             file_info["outcome"] = outcome
