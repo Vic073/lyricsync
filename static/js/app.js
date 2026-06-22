@@ -22,23 +22,43 @@ $$(".nav-btn").forEach(btn => {
 });
 
 // ── Scan ───────────────────────────────────────────────────────────────────
+$("btn-browse").addEventListener("click", async () => {
+  $("btn-browse").disabled = true;
+  showToast("Opening folder browser...", "info");
+  try {
+    const res = await api("POST", "/browse");
+    if (res.folder) {
+      $("folder-input").value = res.folder;
+      showToast("Folder selected successfully.", "success");
+    } else if (res.cancelled) {
+      showToast("Folder selection cancelled.", "");
+    }
+  } catch (e) {
+    showToast("Error opening folder browser.", "error");
+  } finally {
+    $("btn-browse").disabled = false;
+  }
+});
+
 $("btn-scan").addEventListener("click", async () => {
   const folder = $("folder-input").value.trim();
-  if (!folder) { showToast("Enter a folder path first.", "error"); return; }
+  if (!folder) { showToast("Enter a folder path first or browse.", "error"); return; }
 
   setBadge("scanning");
   $("btn-scan").disabled = true;
+  $("btn-browse").disabled = true;
   $("card-summary").style.display = "none";
   $("card-progress").style.display = "none";
   $("card-log").style.display = "none";
 
   try {
     const res = await api("POST", "/scan", { folder });
-    if (res.error) { showToast(res.error, "error"); setBadge("idle"); $("btn-scan").disabled = false; }
+    if (res.error) { showToast(res.error, "error"); setBadge("idle"); $("btn-scan").disabled = false; $("btn-browse").disabled = false; }
   } catch (e) {
     showToast("Could not reach server.", "error");
     setBadge("idle");
     $("btn-scan").disabled = false;
+    $("btn-browse").disabled = false;
   }
 });
 
@@ -75,6 +95,7 @@ async function loadSettings() {
   const s = await api("GET", "/settings");
   $("set-delay").value = s.delay_ms;
   $("set-fallback").checked = s.embed_unsynced_fallback;
+  $("set-generate-lrc").checked = s.generate_lrc_files;
   $("set-report-folder").value = s.report_folder || "";
 }
 
@@ -82,6 +103,7 @@ $("btn-save-settings").addEventListener("click", async () => {
   await api("POST", "/settings", {
     delay_ms: parseInt($("set-delay").value),
     embed_unsynced_fallback: $("set-fallback").checked,
+    generate_lrc_files: $("set-generate-lrc").checked,
     report_folder: $("set-report-folder").value.trim()
   });
   showToast("Settings saved.", "success");
@@ -108,6 +130,7 @@ function handleEvent(type, data) {
 
   if (type === "scan_done") {
     $("btn-scan").disabled = false;
+    $("btn-browse").disabled = false;
     setBadge("ready");
     updateButtons("ready");
     showScanSummary(data);

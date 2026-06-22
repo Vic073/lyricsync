@@ -70,6 +70,7 @@
           <div class="card-label">Music Library Folder</div>
           <div class="folder-row">
             <input type="text" id="folder-input" placeholder="Paste your folder path here, e.g.  C:\Music" spellcheck="false">
+            <button id="btn-browse" class="btn-secondary">Browse...</button>
             <button id="btn-scan" class="btn-primary">Scan Library</button>
           </div>
           <div class="folder-hint">The app will scan all subfolders recursively for MP3 files.</div>
@@ -200,6 +201,19 @@
             <div class="setting-control">
               <label class="toggle">
                 <input type="checkbox" id="set-fallback" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Generate External LRC Files</div>
+              <div class="setting-desc">Save a .lrc file next to each MP3. Highly recommended for complete synced lyrics compatibility on mobile players like OTO Player.</div>
+            </div>
+            <div class="setting-control">
+              <label class="toggle">
+                <input type="checkbox" id="set-generate-lrc" checked>
                 <span class="toggle-slider"></span>
               </label>
             </div>
