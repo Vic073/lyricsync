@@ -75,7 +75,15 @@ def scan_library(root_folder: str) -> list:
                 if any(k.startswith("SYLT") for k in tags.keys()):
                     info["state"] = "SYNCED"
                 elif any(k.startswith("USLT") for k in tags.keys()):
-                    info["state"] = "UNSYNCED"
+                    # Check if USLT contains LRC timestamps
+                    synced_in_uslt = False
+                    for key, frame in tags.items():
+                        if key.startswith("USLT"):
+                            text = getattr(frame, 'text', '')
+                            if re.search(r'\[\d{1,2}:\d{2}', text):
+                                synced_in_uslt = True
+                                break
+                    info["state"] = "SYNCED" if synced_in_uslt else "UNSYNCED"
                 else:
                     info["state"] = "EMPTY"
 
