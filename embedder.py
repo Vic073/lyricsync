@@ -2,6 +2,11 @@
 embedder.py — Embed lyrics into MP3 ID3 tags using mutagen.
 Handles SYLT (synced) and USLT (unsynced) frames.
 Atomic write: write to temp file first, then replace original.
+
+Synced lyrics strategy (for mobile compatibility):
+  1. USLT  — raw LRC text WITH timestamps (most mobile players parse these)
+  2. SYLT  — structured binary sync data (for desktop players like foobar2000)
+  3. .lrc  — external sidecar file (universal gold standard for mobile)
 """
 
 import os
@@ -37,13 +42,39 @@ def parse_lrc(lrc_text: str) -> list[tuple[int, str]]:
     return result
 
 
-def embed_lyrics(path: str, synced_lrc: str = None, plain_text: str = None):
+def write_lrc_file(mp3_path: str, lrc_text: str):
+    """
+    Write an external .lrc sidecar file next to the MP3.
+    e.g. /music/Song.mp3 → /music/Song.lrc
+    The .lrc file uses the exact LRC text from the API.
+    """
+    mp3 = Path(mp3_path)
+    lrc_path = mp3.with_suffix(".lrc")
+    try:
+        lrc_path.write_text(lrc_text, encoding="utf-8")
+    except Exception:
+        raise
+
+
+def embed_lyrics(path: str, synced_lrc: str = None, plain_text: str = None,
+                 generate_lrc: bool = True):
     """
     Embed lyrics into an MP3 file.
-    - synced_lrc: LRC-format string → writes SYLT frame
-    - plain_text: plain lyrics string → writes USLT frame
+    - synced_lrc: LRC-format string → writes SYLT + USLT (with timestamps) + .lrc file
+    - plain_text: plain lyrics string → writes USLT frame only
     Atomic: writes to a temp file then replaces the original.
     Preserves all other ID3 tags.
+
+    Mobile compatibility strategy:
+      When synced_lrc is provided:
+        1. USLT gets the RAW LRC text (with [mm:ss.xx] timestamps intact).
+           Mobile players like OTO, Musicolet, Poweramp parse these timestamps
+           from USLT and display synced/karaoke lyrics.
+        2. SYLT gets the structured binary sync data for desktop players
+           (foobar2000, MusicBee, etc.) that support the SYLT frame.
+        3. An external .lrc sidecar file is written (if generate_lrc=True).
+           This is the universal gold standard — virtually every mobile player
+           supports reading .lrc files.
     """
     if not synced_lrc and not plain_text:
         raise ValueError("No lyrics provided")
@@ -68,6 +99,7 @@ def embed_lyrics(path: str, synced_lrc: str = None, plain_text: str = None):
             if plain_text:
                 _embed_uslt(tags, plain_text)
         else:
+            # ── SYLT frame (for desktop players) ──
             # SYLT expects list of (text_str, timestamp_int) tuples
             sylt_data = [(line, ms) for ms, line in parsed]
             tags.add(SYLT(
@@ -77,9 +109,15 @@ def embed_lyrics(path: str, synced_lrc: str = None, plain_text: str = None):
                 type=1,         # lyrics
                 text=sylt_data
             ))
-            # Also store plain USLT (strip timestamps) for player fallback
-            plain_stripped = "\n".join(line for _, line in parsed if line)
-            _embed_uslt(tags, plain_stripped)
+
+            # ── USLT frame (for mobile players) ──
+            # Embed the RAW LRC text WITH timestamps so mobile players
+            # (OTO, Musicolet, Poweramp, etc.) can parse and sync them.
+            _embed_uslt(tags, synced_lrc)
+
+            # ── External .lrc sidecar file ──
+            if generate_lrc:
+                write_lrc_file(str(path), synced_lrc)
 
     elif plain_text:
         # Remove existing USLT only; leave SYLT alone
@@ -131,6 +169,12 @@ def get_lyrics_state(path: str) -> str:
         if any(k.startswith("SYLT") for k in tags.keys()):
             return "SYNCED"
         if any(k.startswith("USLT") for k in tags.keys()):
+            # Check if USLT contains LRC timestamps — if so, it's synced
+            for key, frame in tags.items():
+                if key.startswith("USLT"):
+                    text = getattr(frame, 'text', '')
+                    if re.search(r'\[\d{1,2}:\d{2}', text):
+                        return "SYNCED"
             return "UNSYNCED"
         return "EMPTY"
     except ID3NoHeaderError:

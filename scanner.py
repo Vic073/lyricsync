@@ -4,6 +4,7 @@ States: EMPTY, UNSYNCED, SYNCED
 """
 
 import os
+import re
 from pathlib import Path
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, ID3NoHeaderError
@@ -13,11 +14,16 @@ def get_lyrics_state(path: str) -> str:
     """Return SYNCED, UNSYNCED, or EMPTY based on ID3 tag content."""
     try:
         tags = ID3(path)
-        # SYLT = Synchronised Lyrics
+        # SYLT = Synchronised Lyrics (binary sync data)
         if any(k.startswith("SYLT") for k in tags.keys()):
             return "SYNCED"
-        # USLT = Unsynchronised Lyrics
+        # USLT = check if it contains LRC timestamps (our mobile-compatible format)
         if any(k.startswith("USLT") for k in tags.keys()):
+            for key, frame in tags.items():
+                if key.startswith("USLT"):
+                    text = getattr(frame, 'text', '')
+                    if re.search(r'\[\d{1,2}:\d{2}', text):
+                        return "SYNCED"
             return "UNSYNCED"
         return "EMPTY"
     except ID3NoHeaderError:
